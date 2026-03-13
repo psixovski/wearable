@@ -1,174 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const setCollapsibleState = (el, open) => {
-    if (!el) return;
-
-    el.setAttribute("aria-hidden", open ? "false" : "true");
-    if ("inert" in el) el.inert = !open;
-
-    if (open) {
-      el.hidden = false;
-      if (prefersReducedMotion) {
-        el.style.height = "auto";
-        el.style.opacity = "1";
-        return;
-      }
-
-      el.style.height = "0px";
-      el.style.opacity = "0";
-      requestAnimationFrame(() => {
-        el.style.height = `${el.scrollHeight}px`;
-        el.style.opacity = "1";
-      });
-
-      const onOpenEnd = (event) => {
-        if (event.propertyName !== "height") return;
-        if (el.getAttribute("aria-hidden") === "false") {
-          el.style.height = "auto";
-          el.style.opacity = "1";
-        }
-        el.removeEventListener("transitionend", onOpenEnd, true);
-      };
-      el.addEventListener("transitionend", onOpenEnd, true);
-      return;
-    }
-
-    if (prefersReducedMotion) {
-      el.style.height = "0px";
-      el.style.opacity = "0";
-      el.hidden = true;
-      return;
-    }
-
-    el.style.height = `${el.scrollHeight}px`;
-    el.style.opacity = "1";
-    requestAnimationFrame(() => {
-      el.style.height = "0px";
-      el.style.opacity = "0";
-    });
-
-    window.setTimeout(() => {
-      if (el.getAttribute("aria-hidden") === "true") {
-        el.hidden = true;
-      }
-    }, 300);
-  };
-
-  const syncExpandedHeight = (el) => {
-    if (!el || prefersReducedMotion || el.getAttribute("aria-hidden") !== "false") return;
-    if (el.style.height === "auto") return;
-    requestAnimationFrame(() => {
-      el.style.height = `${el.scrollHeight}px`;
-    });
-  };
-
-  const servicesToggle = document.getElementById("servicesToggle");
-  const catalogPanel = document.getElementById("servicesCatalogPanel");
-  const contactToggle = document.getElementById("contactToggle");
-  const contactBlock = document.getElementById("contactBlock");
-  const categories = Array.from(document.querySelectorAll(".catalog-cat"));
-
-  const setSubState = (catBody, subRow, open) => {
-    const subBtn = subRow.querySelector(".sub-button");
-    const desc = subRow.querySelector(".desc");
-    if (!subBtn || !desc) return;
-
-    subBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    subRow.classList.toggle("is-open", open);
-    desc.classList.toggle("is-open", open);
-    setCollapsibleState(desc, open);
-    syncExpandedHeight(catBody);
-    syncExpandedHeight(catalogPanel);
-  };
-
-  const closeCategory = (cat) => {
-    const catBtn = cat.querySelector(".cat-button");
-    const catBody = cat.querySelector(".cat-body");
-    if (!catBtn || !catBody) return;
-
-    catBtn.setAttribute("aria-expanded", "false");
-    const subRows = cat.querySelectorAll(".sub-row");
-    subRows.forEach((subRow) => setSubState(catBody, subRow, false));
-    setCollapsibleState(catBody, false);
-  };
-
-  const openCategory = (cat) => {
-    const catBtn = cat.querySelector(".cat-button");
-    const catBody = cat.querySelector(".cat-body");
-    if (!catBtn || !catBody) return;
-
-    catBtn.setAttribute("aria-expanded", "true");
-    setCollapsibleState(catBody, true);
-    syncExpandedHeight(catalogPanel);
-  };
-
-  categories.forEach((cat) => {
-    const catBtn = cat.querySelector(".cat-button");
-    const catBody = cat.querySelector(".cat-body");
-    if (!catBtn || !catBody) return;
-
-    closeCategory(cat);
-
-    catBtn.addEventListener("click", () => {
-      const isOpen = catBtn.getAttribute("aria-expanded") === "true";
-      if (isOpen) {
-        closeCategory(cat);
-        syncExpandedHeight(catalogPanel);
-        return;
-      }
-
-      categories.forEach((other) => {
-        if (other !== cat) closeCategory(other);
-      });
-      openCategory(cat);
-    });
-
-    const subRows = Array.from(cat.querySelectorAll(".sub-row"));
-    subRows.forEach((subRow) => {
-      const subBtn = subRow.querySelector(".sub-button");
-      if (!subBtn) return;
-
-      setSubState(catBody, subRow, false);
-      subBtn.addEventListener("click", () => {
-        const isOpen = subBtn.getAttribute("aria-expanded") === "true";
-        subRows.forEach((other) => {
-          if (other !== subRow) setSubState(catBody, other, false);
-        });
-        setSubState(catBody, subRow, !isOpen);
-      });
-    });
-  });
-
-  if (servicesToggle && catalogPanel) {
-    servicesToggle.setAttribute("aria-expanded", "false");
-    setCollapsibleState(catalogPanel, false);
-
-    servicesToggle.addEventListener("click", () => {
-      const shouldOpen = servicesToggle.getAttribute("aria-expanded") !== "true";
-      servicesToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-
-      if (shouldOpen) {
-        setCollapsibleState(catalogPanel, true);
-        return;
-      }
-
-      categories.forEach((cat) => closeCategory(cat));
-      setCollapsibleState(catalogPanel, false);
-    });
-  }
-
-  if (contactToggle && contactBlock) {
-    contactToggle.setAttribute("aria-expanded", "false");
-    setCollapsibleState(contactBlock, false);
-
-    contactToggle.addEventListener("click", () => {
-      const shouldOpen = contactToggle.getAttribute("aria-expanded") !== "true";
-      contactToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-      setCollapsibleState(contactBlock, shouldOpen);
-    });
-  }
-
   const galleryModal = document.getElementById("galleryModal");
   const galleryClose = document.getElementById("galleryClose");
   const galleryImage = document.getElementById("galleryImage");
@@ -336,6 +168,265 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   } else {
     console.error("Gallery modal initialization failed: required DOM elements are missing.");
+  }
+
+  const descriptionBlock = document.querySelector("[data-project-description]");
+  const topCardToggles = Array.from(document.querySelectorAll("[data-top-card-toggle]"));
+  const topCardPanels = Array.from(document.querySelectorAll("[data-top-card-panel]"));
+  const servicesCatalog = document.querySelector("[data-services-catalog]");
+  const panelById = new Map(topCardPanels.map((panel) => [panel.id, panel]));
+
+  if (descriptionBlock) {
+    if (prefersReducedMotion) {
+      descriptionBlock.classList.add("home-services--visible");
+    } else if ("IntersectionObserver" in window) {
+      const descriptionObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("home-services--visible");
+              descriptionObserver.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
+      );
+
+      descriptionObserver.observe(descriptionBlock);
+    } else {
+      descriptionBlock.classList.add("home-services--visible");
+    }
+  }
+
+  let syncTopPanelsHeights = () => {};
+
+  if (topCardToggles.length && topCardPanels.length) {
+    const getPanelForToggle = (toggle) => panelById.get(toggle.getAttribute("aria-controls"));
+
+    const applyCatalogFadeState = () => {
+      if (!servicesCatalog) return;
+      servicesCatalog.classList.toggle("home-services-catalog--open", servicesCatalog.classList.contains("is-open"));
+    };
+
+    const animateOpen = (panel) => {
+      panel.style.maxHeight = `${panel.scrollHeight}px`;
+    };
+
+    const animateClose = (panel) => {
+      panel.style.maxHeight = `${panel.scrollHeight}px`;
+      requestAnimationFrame(() => {
+        panel.style.maxHeight = "0px";
+      });
+    };
+
+    const closeTopCard = (toggle, panel) => {
+      if (!toggle || !panel) return;
+      const wasOpen = panel.classList.contains("is-open");
+      panel.classList.remove("is-open");
+      toggle.setAttribute("aria-expanded", "false");
+      if (wasOpen) {
+        animateClose(panel);
+      } else {
+        panel.style.maxHeight = "0px";
+      }
+    };
+
+    const openTopCard = (toggle, panel) => {
+      if (!toggle || !panel) return;
+      panel.classList.add("is-open");
+      toggle.setAttribute("aria-expanded", "true");
+      animateOpen(panel);
+    };
+
+    syncTopPanelsHeights = () => {
+      topCardPanels.forEach((panel) => {
+        if (panel.classList.contains("is-open")) {
+          panel.style.maxHeight = `${panel.scrollHeight}px`;
+        }
+      });
+      applyCatalogFadeState();
+    };
+
+    topCardToggles.forEach((toggle) => {
+      const panel = getPanelForToggle(toggle);
+      if (!panel) return;
+      panel.classList.remove("is-open");
+      panel.style.maxHeight = "0px";
+      toggle.setAttribute("aria-expanded", "false");
+
+      toggle.addEventListener("click", () => {
+        const isOpen = panel.classList.contains("is-open");
+        topCardToggles.forEach((otherToggle) => {
+          if (otherToggle === toggle) return;
+          closeTopCard(otherToggle, getPanelForToggle(otherToggle));
+        });
+
+        if (isOpen) {
+          closeTopCard(toggle, panel);
+        } else {
+          openTopCard(toggle, panel);
+        }
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(syncTopPanelsHeights);
+        });
+      });
+    });
+
+    topCardPanels.forEach((panel) => {
+      panel.addEventListener("transitionend", syncTopPanelsHeights);
+    });
+    window.addEventListener("resize", syncTopPanelsHeights);
+  }
+
+  if (servicesCatalog) {
+    const accordionItems = Array.from(servicesCatalog.querySelectorAll(".home-services-accordion"));
+    const designSubItems = Array.from(servicesCatalog.querySelectorAll("[data-design-sub-item]"));
+
+    const animateOpen = (el) => {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+    };
+
+    const animateClose = (el) => {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      requestAnimationFrame(() => {
+        el.style.maxHeight = "0px";
+      });
+    };
+
+    const syncHeights = () => {
+      designSubItems.forEach((item) => {
+        const panel = item.querySelector("[data-design-sub-panel]");
+        if (!panel) return;
+        if (item.classList.contains("is-open")) {
+          panel.style.maxHeight = `${panel.scrollHeight}px`;
+        }
+      });
+
+      accordionItems.forEach((item) => {
+        const panel = item.querySelector("[data-accordion-panel]");
+        if (!panel) return;
+        if (item.classList.contains("is-open")) {
+          panel.style.maxHeight = `${panel.scrollHeight}px`;
+        }
+      });
+
+      if (servicesCatalog.classList.contains("is-open")) {
+        servicesCatalog.style.maxHeight = `${servicesCatalog.scrollHeight}px`;
+      }
+      syncTopPanelsHeights();
+    };
+
+    const queueSync = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(syncHeights);
+      });
+    };
+
+    const closeAccordion = (item) => {
+      const wasOpen = item.classList.contains("is-open");
+      item.classList.remove("is-open");
+      const trigger = item.querySelector("[data-accordion-trigger]");
+      trigger?.setAttribute("aria-expanded", "false");
+      const panel = item.querySelector("[data-accordion-panel]");
+      if (!panel) return;
+      if (wasOpen) {
+        animateClose(panel);
+      } else {
+        panel.style.maxHeight = "0px";
+      }
+    };
+
+    const openAccordion = (item) => {
+      item.classList.add("is-open");
+      const trigger = item.querySelector("[data-accordion-trigger]");
+      trigger?.setAttribute("aria-expanded", "true");
+      const panel = item.querySelector("[data-accordion-panel]");
+      if (panel) animateOpen(panel);
+    };
+
+    const closeDesignSub = (item) => {
+      const wasOpen = item.classList.contains("is-open");
+      const trigger = item.querySelector("[data-design-sub-trigger]");
+      const panel = item.querySelector("[data-design-sub-panel]");
+      item.classList.remove("is-open");
+      trigger?.setAttribute("aria-expanded", "false");
+      if (!panel) return;
+      if (wasOpen) {
+        animateClose(panel);
+      } else {
+        panel.style.maxHeight = "0px";
+      }
+    };
+
+    const openDesignSub = (item) => {
+      const trigger = item.querySelector("[data-design-sub-trigger]");
+      const panel = item.querySelector("[data-design-sub-panel]");
+      item.classList.add("is-open");
+      trigger?.setAttribute("aria-expanded", "true");
+      if (!panel) return;
+      animateOpen(panel);
+    };
+
+    servicesCatalog.style.maxHeight = "0px";
+    accordionItems.forEach((item) => {
+      const panel = item.querySelector("[data-accordion-panel]");
+      if (panel) panel.style.maxHeight = "0px";
+    });
+    designSubItems.forEach((item) => {
+      const trigger = item.querySelector("[data-design-sub-trigger]");
+      const panel = item.querySelector("[data-design-sub-panel]");
+      item.classList.remove("is-open");
+      trigger?.setAttribute("aria-expanded", "false");
+      if (panel) panel.style.maxHeight = "0px";
+    });
+
+    accordionItems.forEach((item) => {
+      const trigger = item.querySelector("[data-accordion-trigger]");
+      if (!trigger) return;
+
+      trigger.addEventListener("click", () => {
+        const isCurrentOpen = item.classList.contains("is-open");
+        accordionItems.forEach((otherItem) => closeAccordion(otherItem));
+
+        if (!isCurrentOpen) {
+          openAccordion(item);
+        }
+
+        queueSync();
+      });
+
+      const panel = item.querySelector("[data-accordion-panel]");
+      panel?.addEventListener("transitionend", queueSync);
+    });
+
+    designSubItems.forEach((item) => {
+      const trigger = item.querySelector("[data-design-sub-trigger]");
+      if (!trigger) return;
+
+      trigger.addEventListener("click", () => {
+        const isCurrentOpen = item.classList.contains("is-open");
+        designSubItems.forEach((otherItem) => {
+          if (otherItem !== item) {
+            closeDesignSub(otherItem);
+          }
+        });
+
+        if (isCurrentOpen) {
+          closeDesignSub(item);
+        } else {
+          openDesignSub(item);
+        }
+
+        queueSync();
+      });
+
+      const panel = item.querySelector("[data-design-sub-panel]");
+      panel?.addEventListener("transitionend", queueSync);
+    });
+
+    servicesCatalog.addEventListener("transitionend", queueSync);
+    window.addEventListener("resize", queueSync);
   }
 
   const els = document.querySelectorAll(".reveal");
